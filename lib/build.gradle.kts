@@ -1,28 +1,42 @@
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-
-plugins {
-    kotlin("jvm") version "1.5.31"
-    `java-library`
-    `maven-publish`
-    id("org.jlleitschuh.gradle.ktlint") version "10.0.0"
-}
-
 group = "com.github.traxterz"
 version = "0.1.0-SNAPSHOT"
+
+val ktor_version: String by project
+
+val paho_mqtt_client_version: String by project
+
+val sourcesJar by tasks.registering(Jar::class) {
+    archiveClassifier.set("sources")
+    from(sourceSets["main"].allSource)
+}
+
+allprojects {
+    repositories {
+        mavenCentral()
+        maven { url = uri("https://plugins.gradle.org/m2/") }
+        maven { url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap") }
+        maven { url = uri("https://maven.pkg.jetbrains.space/kotlin/p/kotlin/dev") }
+    }
+}
+
+buildscript {
+    repositories { maven { setUrl("https://plugins.gradle.org/m2/") } }
+    dependencies {
+        classpath(kotlin("gradle-plugin", version = "1.9.0"))
+    }
+}
+
+plugins {
+    kotlin("jvm") version "1.9.0"
+    id("java-library")
+    id("maven-publish")
+    id("org.jlleitschuh.gradle.ktlint") version "11.5.1"
+}
 
 java {
     sourceCompatibility = JavaVersion.VERSION_1_8
     targetCompatibility = JavaVersion.VERSION_1_8
 }
-
-repositories {
-    mavenLocal()
-    mavenCentral()
-    jcenter()
-}
-
-val ktor_version: String by project
-val paho_mqtt_client_version: String by project
 
 dependencies {
     implementation(kotlin("stdlib"))
@@ -30,20 +44,6 @@ dependencies {
     api("org.eclipse.paho:org.eclipse.paho.mqttv5.client:$paho_mqtt_client_version")
     testImplementation("io.ktor:ktor-server-test-host:$ktor_version")
     testImplementation(kotlin("test"))
-}
-
-tasks.withType<KotlinCompile> {
-    kotlinOptions {
-        freeCompilerArgs = listOf("-Xjsr305=strict", "-Xopt-in=kotlin.RequiresOptIn")
-        jvmTarget = "1.8"
-        languageVersion = "1.5"
-        apiVersion = "1.5"
-    }
-}
-
-val sourcesJar by tasks.registering(Jar::class) {
-    archiveClassifier.set("sources")
-    from(sourceSets["main"].allSource)
 }
 
 publishing {
@@ -57,12 +57,26 @@ publishing {
     }
 }
 
+ktlint {
+    version.set("0.43.0")
+    ignoreFailures.set(true)
+}
+
+// configure the Gradle JAR task to output all source file
+tasks.jar {
+    from(sourceSets["main"].allSource)
+}
+
 tasks {
     test { useJUnitPlatform() }
     check { dependsOn(test) }
 }
 
-ktlint {
-    version.set("0.43.0")
-    ignoreFailures.set(false)
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
+    kotlinOptions {
+        freeCompilerArgs = listOf("-Xjsr305=strict", "-Xopt-in=kotlin.RequiresOptIn")
+        jvmTarget = "17"
+        languageVersion = "1.9"
+        apiVersion = "1.9"
+    }
 }

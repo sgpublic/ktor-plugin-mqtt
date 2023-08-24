@@ -74,74 +74,24 @@ interface Mqtt : CoroutineScope, IMqttAsyncClient {
 }
 
 class MqttClientPlugin(
-    private val config: Mqtt.Configuration,
-    private val logger: Logger,
-    delegate: IMqttAsyncClient
-) : Mqtt, IMqttAsyncClient by delegate {
+    private val mConfig: Mqtt.Configuration,
+    private val mLogger: Logger,
+    mDelegate: IMqttAsyncClient
+) : Mqtt, IMqttAsyncClient by mDelegate {
+
     private val parent: CompletableJob = Job()
+
     override val coroutineContext: CoroutineContext
         get() = parent
 
     private var messageListenerByTopic = ConcurrentHashMap<Topic, MessageListener>()
 
-    fun connectToBroker() {
-        setCallback(
-            object : MqttCallback {
-                override fun connectComplete(reconnect: Boolean, serverURI: String) =
-                    logger.info("connected to broker: $serverURI").also {
-                        config.initialSubscriptions.forEach { subscription ->
-                            subscribe(
-                                subscription.topic.value,
-                                subscription.qualityOfService.level
-                            ).actionCallback = object : MqttActionListener {
-                                override fun onSuccess(asyncActionToken: IMqttToken) =
-                                    logger.info("successfully subscribed to topic: [ ${subscription.topic.value} ] with qos: [ ${subscription.qualityOfService.level} ]")
-
-                                override fun onFailure(asyncActionToken: IMqttToken?, exception: Throwable) =
-                                    logger.error("could not subscribeTo to topic: [ ${subscription.topic.value} ] due to: [ ${exception.message} ]")
-                            }
-                        }
-                    }
-
-                override fun authPacketArrived(reasonCode: Int, properties: MqttProperties) {
-                    logger.debug("Auth reason code: [ $reasonCode ]  with reason: [ ${properties.reasonString} ]")
-                }
-
-                override fun disconnected(disconnectResponse: MqttDisconnectResponse) {
-                    logger.warn("disconnected from broker due to: [ ${disconnectResponse.reasonString} ]")
-                }
-
-                override fun mqttErrorOccurred(exception: MqttException) {
-                    logger.error("an error occurred: [ ${exception.message} ]")
-                }
-
-                override fun messageArrived(topic: String, message: MqttMessage) {
-                    logger.debug("received ${message.toDebugString()} from topic [ $topic ]")
-                    val validTopic = Topic(topic)
-                    messageListenerByTopic[validTopic].let {
-                        launch {
-                            it?.invoke(TopicContext(validTopic, this@MqttClientPlugin), message)
-                        }
-                    }
-                }
-
-                override fun deliveryComplete(token: IMqttToken) {
-                    logger.debug("delivered message ${String(token.message.payload)} ")
-                }
-            }
-        )
-        connect(config.connectionOptions).waitForCompletion()
-    }
-
-    suspend fun publishMessageTo(
-        topic: Topic,
-        msg: String,
-        qos: QualityOfService,
-        retained: Boolean
-    ) {
-        val message = MqttMessage()
-        message.payload = msg.toByteArray()
-        publish(topic.value, message.payload, qos.level, retained).await()
+    override fun shutdown() {
+        mLogger.info("shutting down Mqtt")
+        parent.complete()
+        messageListenerByTopic.clear()
+        close()
+        disconnectForcibly()
     }
 
     override fun addTopicListener(topic: Topic, listener: MessageListener) {
@@ -155,11 +105,64 @@ class MqttClientPlugin(
             .await()
             .also { messageListenerByTopic.remove(topic) }
 
-    override fun shutdown() {
-        logger.info("shutting down Mqtt")
-        parent.complete()
-        messageListenerByTopic.clear()
-        close()
-        disconnectForcibly()
+    fun connectToBroker() {
+        setCallback(
+            object : MqttCallback {
+                override fun connectComplete(reconnect: Boolean, serverURI: String) =
+                    mLogger.info("connected to broker: $serverURI").also {
+                        mConfig.initialSubscriptions.forEach { subscription ->
+                            subscribe(
+                                subscription.topic.value,
+                                subscription.qualityOfService.level
+                            ).actionCallback = object : MqttActionListener {
+                                override fun onSuccess(asyncActionToken: IMqttToken) =
+                                    mLogger.info("successfully subscribed to topic: [ ${subscription.topic.value} ] with qos: [ ${subscription.qualityOfService.level} ]")
+
+                                override fun onFailure(asyncActionToken: IMqttToken?, exception: Throwable) =
+                                    mLogger.error("could not subscribeTo to topic: [ ${subscription.topic.value} ] due to: [ ${exception.message} ]")
+                            }
+                        }
+                    }
+
+                override fun authPacketArrived(reasonCode: Int, properties: MqttProperties) {
+                    mLogger.debug("Auth reason code: [ $reasonCode ]  with reason: [ ${properties.reasonString} ]")
+                }
+
+                override fun disconnected(disconnectResponse: MqttDisconnectResponse) {
+                    mLogger.warn("disconnected from broker due to: [ ${disconnectResponse.reasonString} ]")
+                }
+
+                override fun mqttErrorOccurred(exception: MqttException) {
+                    mLogger.error("an error occurred: [ ${exception.message} ]")
+                }
+
+                override fun messageArrived(topic: String, message: MqttMessage) {
+                    mLogger.debug("received ${message.toDebugString()} from topic [ $topic ]")
+                    val validTopic = Topic(topic)
+                    messageListenerByTopic[validTopic].let {
+                        launch {
+                            it?.invoke(TopicContext(validTopic, this@MqttClientPlugin), message)
+                        }
+                    }
+                }
+
+                override fun deliveryComplete(token: IMqttToken) {
+                    mLogger.debug("delivered message ${String(token.message.payload)} ")
+                }
+            }
+        )
+        connect(mConfig.connectionOptions).waitForCompletion()
     }
+
+    suspend fun publishMessageTo(
+        topic: Topic,
+        msg: String,
+        qos: QualityOfService,
+        retained: Boolean
+    ) {
+        val message = MqttMessage()
+        message.payload = msg.toByteArray()
+        publish(topic.value, message.payload, qos.level, retained).await()
+    }
+
 }
