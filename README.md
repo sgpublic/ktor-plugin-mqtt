@@ -9,10 +9,6 @@ This plugin provides a full MQTT client solution for KTOR servers. It is based o
 
 ## Documentation
 
-**Compatibility**
-- The v1.1.0 works with KTOR 1.6.5
-- The v2.0.0 works with KTOR 2.1.3
-
 **Methods available :**
 
 - Every Paho method

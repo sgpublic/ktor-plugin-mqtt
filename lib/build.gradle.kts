@@ -45,5 +45,12 @@ githubRelease {
     tagName = "v$version"
     releaseName = "v$version"
     prerelease = version.toString().let { it.contains("alpha") || it.contains("beta") }
+    description = """
+        **Compatibility**
+        
+        + kotlin: v${kpmqtt.versions.kotlin.get()}
+        + ktor: v${kpmqtt.versions.ktor.get()}
+        + mqttv5: v${kpmqtt.versions.mqttv5.get()}
+    """.trimIndent()
     overwrite = true
 }
