@@ -1,0 +1,23 @@
+[versions]
+kotlin = "1.9.21"
+publish-java = "1.0.0-alpha01"
+release-github = "2.5.2"
+
+mqttv5 = "1.2.5"
+ktor = "2.3.7"
+
+
+[libraries]
+mqttv5 = { group = "org.eclipse.paho", name = "org.eclipse.paho.mqttv5.client", version.ref = "mqttv5" }
+
+ktor-server-core = { group = "io.ktor", name = "ktor-server-core", version.ref = "ktor" }
+ktor-server-test-host = { group = "io.ktor", name = "ktor-server-test-host", version.ref = "ktor" }
+
+kotlin-stdlib = { group = "org.jetbrains.kotlin", name = "kotlin-stdlib", version.ref = "kotlin" }
+kotlin-test = { group = "org.jetbrains.kotlin", name = "kotlin-test", version.ref = "kotlin" }
+
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+publish-java = { id = "io.github.sgpublic.java-publish", version.ref = "publish-java" }
+release-github = { id = "com.github.breadmoirai.github-release", version.ref = "release-github" }
